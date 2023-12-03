@@ -1,12 +1,22 @@
 function iniciarApp() { //Se dispara cuando se ejecute por completo DOMCONTENTLOADED
-
-    const selectCategorias = document.querySelector("#categorias");
-    selectCategorias.addEventListener("change", seleccionarCategoria);
+    
     const resultado = document.querySelector("#resultado");
+    const selectCategorias = document.querySelector("#categorias");
+
+    if(selectCategorias){ //Si el elemento existe, lo agregamos
+        selectCategorias.addEventListener("change", seleccionarCategoria);
+        obtenerCategorias();
+    }
+    
+    const favoritosDiv = document.querySelector(".favoritos");
+    if(favoritosDiv){
+        obtenerFavoritos();
+    }
+
 
     const modal = new bootstrap.Modal("#modal", {}); //Hacemos la instancia, a donde lo queremos aplicar, en este caso en el HTML con id de modal y como segunda opción las opciones para crear el modal.
 
-    obtenerCategorias();
+    
 
     function obtenerCategorias() {
         const url = "https://www.themealdb.com/api/json/v1/1/categories.php";
@@ -67,15 +77,15 @@ function iniciarApp() { //Se dispara cuando se ejecute por completo DOMCONTENTLO
 
             const recetaImg = document.createElement("img");
             recetaImg.classList.add("card-img-top");
-            recetaImg.alt = `Imagen de la receta ${strMeal}`;
-            recetaImg.src = strMealThumb;
+            recetaImg.alt = `Imagen de la receta ${strMeal ?? receta.title}`; //Le agrega lo que tenemos en localStorage
+            recetaImg.src = strMealThumb ?? receta.img; //Le agrega lo que tenemos en localStorage
 
             const recetaCardBody = document.createElement("div");
             recetaCardBody.classList.add("card-body");
 
             const recetaHeading = document.createElement("h3");
             recetaHeading.classList.add("card-title", "mb-3");
-            recetaHeading.textContent = strMeal;
+            recetaHeading.textContent = strMeal ?? receta.title; //Le agrega lo que tenemos en localStorage
 
 
             const recetaBtn = document.createElement("button");
@@ -84,7 +94,7 @@ function iniciarApp() { //Se dispara cuando se ejecute por completo DOMCONTENTLO
             // recetaBtn.dataset.bsTarget = "#modal"; //Le añade una propiedad como un id al btn que creamos
             // recetaBtn.dataset.bsToggle = "modal"; //Le añade una propiedad como un id al btn que creamos
             recetaBtn.onclick = function() {
-                seleccionarReceta(idMeal);
+                seleccionarReceta(idMeal ?? receta.id);
             }/*Usamos onclick porque este elemento no existe en el HTML, solo usaremos esto si se genera en JS */
 
             //Renderizar en el HTML
@@ -156,16 +166,27 @@ function iniciarApp() { //Se dispara cuando se ejecute por completo DOMCONTENTLO
         //Botones de cerrar y favoritos
         const btnFavorito = document.createElement("button");
         btnFavorito.classList.add("btn", "btn-danger", "col");
-        btnFavorito.textContent = "Guardar favorito";
+        btnFavorito.textContent = existeStorage(idMeal) ? "Eliminar favorito" : "Guardar favorito";
 
         //Almacenar en localStorage
         btnFavorito.onclick = function() {
+
+            if(existeStorage(idMeal)){ //Si sale como true, entonces no lo agrega de nuevo al localStorage
+                (eliminarFavorito(idMeal))
+                btnFavorito.textContent = "Guardar favorito";
+                mostrarToast("Eliminado correctamente");
+                return;
+            }
+            
+
             agregarFavorito({
                 id: idMeal,
                 title: strMeal,
                 img: strMealThumb
 
             });
+            btnFavorito.textContent = "Eliminar favorito";
+            mostrarToast("Agregado correctamente");
         } 
 
         const btnCerrar = document.createElement("button");
@@ -184,8 +205,44 @@ function iniciarApp() { //Se dispara cuando se ejecute por completo DOMCONTENTLO
     function agregarFavorito(receta) {
         const favoritos = JSON.parse(localStorage.getItem("favoritos")) ?? [];
         localStorage.setItem("favoritos", JSON.stringify([...favoritos, receta]));
+        console.log(favoritos)
     }
 
+    function eliminarFavorito(id) {
+        const favoritos = JSON.parse(localStorage.getItem("favoritos")) ?? [];
+        const nuevosFavoritos = favoritos.filter(favorito => favorito.id != id);
+        localStorage.setItem("favoritos", JSON.stringify(nuevosFavoritos));
+    }
+
+    function mostrarToast(mensaje) {
+        const toastDiv = document.querySelector("#toast");
+        const toastBody = document.querySelector(".toast-body");
+
+        //Creamos una instancia con un nuevo toast
+        const toast = new bootstrap.Toast(toastDiv);
+        toastBody.textContent = mensaje;
+        toast.show();
+
+    }
+
+    function existeStorage(id) {
+        const favoritos = JSON.parse(localStorage.getItem("favoritos")) ?? [];
+        return favoritos.some(favorito => favorito.id === id); //Itera sobre cada uno de los elementos y regresa si alguno cumple con la condición
+    }
+
+    function obtenerFavoritos() {
+        const favoritos = JSON.parse(localStorage.getItem("favoritos")) ?? [];
+        if(favoritos.length){ //Para verificar si hay algo en los favoritos
+            mostrarRecetas(favoritos); //Hará un array de recetas
+            return; //Podemos poner un return para quitar el else, y así si queremos poner otro condicional ponemos otro if
+        } 
+
+        const noFavoritos = document.createElement("P");
+        noFavoritos.textContent = "No hay favoritos aún...";
+        noFavoritos.classList.add("fs-4", "text-center", "font-bold", "mt-5");
+        resultado.appendChild(noFavoritos);
+        
+    }
 
     function limpiarHTML(selector) { //Solamente limpiará el contenedor del selector que le proporcionemos
         while(selector.firstChild){
